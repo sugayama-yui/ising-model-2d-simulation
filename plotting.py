@@ -1,27 +1,52 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ising_simulation import run_simulation
+import random
+import math
+from ising_simulation import initialize_spins, monte_carlo_step, measure_observables
+
+def run_simulation_with_progress(L, temperatures, n_thermal, n_measure, measure_interval, seed):
+    rng = random.Random(seed)
+    temps = np.array(temperatures, dtype=float)
+    E_avg, M_avg, chi, binder = [], [], [], []
+
+    for T in temps:
+        print(f"  Temperature T={T:.3f} ...", end="", flush=True)
+        beta = 1.0 / T
+        state = initialize_spins(L, seed=rng.randint(0, 2**31 - 1))
+        # 緩和
+        for _ in range(n_thermal):
+            monte_carlo_step(state, beta, rng)
+        
+        # 測定
+        Es, Ms, M2s, M4s = [], [], [], []
+        for _ in range(n_measure):
+            for __ in range(measure_interval):
+                monte_carlo_step(state, beta, rng)
+            E, M, M2, M4 = measure_observables(state)
+            Es.append(E); Ms.append(abs(M)); M2s.append(M2); M4s.append(M4)
+        
+        E_avg.append(np.mean(Es)/(L*L))
+        M_avg.append(np.mean(Ms)/(L*L))
+        chi.append(beta*(np.mean(M2s)-np.mean(Ms)**2)/(L*L))
+        binder.append(1.0 - np.mean(M4s)/(3.0*np.mean(M2s)**2))
+        print(" Done")
+    return temps, np.array(E_avg), np.array(M_avg), np.array(chi), np.array(binder)
 
 def generate_plots():
-    L_values = [8, 16, 32]
-    temperatures = np.linspace(2.0, 2.6, 20)
-    n_thermal = 2000
-    n_measure = 1000
-    measure_interval = 1
+    L_values = [8, 16, 24] 
+    temperatures = np.linspace(2.1, 2.5, 11) 
+    n_thermal = 3000
+    n_measure = 2000
+    measure_interval = 2
     seed = 42
 
     results = {}
     for L in L_values:
-        print(f"Running simulation for L={L}...")
-        temps, E_avg, M_avg, chi, binder = run_simulation(
+        print(f"--- Running simulation for L={L} ---")
+        temps, E_avg, M_avg, chi, binder = run_simulation_with_progress(
             L, temperatures, n_thermal, n_measure, measure_interval, seed=seed
         )
-        results[L] = {
-            'E': E_avg,
-            'M': M_avg,
-            'chi': chi,
-            'binder': binder
-        }
+        results[L] = {'E': E_avg, 'M': M_avg, 'chi': chi, 'binder': binder}
 
     # Plotting
     fig, axs = plt.subplots(2, 2, figsize=(12, 10))
@@ -65,7 +90,7 @@ def generate_plots():
 
     plt.tight_layout()
     plt.savefig('ising_results.png')
-    print("Plots saved as ising_results.png")
+    print(f"\nPlots saved as ising_results.png")
 
 if __name__ == "__main__":
     generate_plots()

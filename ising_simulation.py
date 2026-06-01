@@ -30,13 +30,10 @@ class IsingState:
 
 
 def initialize_spins(L: int, seed: int | None = None) -> IsingState:
-    """ランダムな LxL 配置でイジング状態を初期化する。"""
-    if seed is not None:
-        rng = random.Random(seed)
-        spins = rng.choices([-1, 1], k=L * L)
-        spins = np.array(spins, dtype=np.int8).reshape((L, L))
-    else:
-        spins = np.random.choice([-1, 1], size=(L, L)).astype(np.int8)
+    """すべてのスピンを +1 で初期化する (Cold start)。
+    ランダムスタートよりも Tc 付近で平衡状態に達しやすい。
+    """
+    spins = np.ones((L, L), dtype=np.int8)
     return IsingState(L=L, spins=spins)
 
 
